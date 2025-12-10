@@ -1,0 +1,109 @@
+// Prisma Schema for Posts, Comments, and Likes
+// Compatible with Next.js applications
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // For migrations (non-pooled connection)
+}
+
+// ============================================
+// USER MODEL
+// ============================================
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  name      String?
+  avatar    String?
+  bio       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  posts    Post[]
+  comments Comment[]
+  likes    Like[]
+
+  @@index([email])
+  @@index([username])
+}
+
+// ============================================
+// POST MODEL
+// ============================================
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  imageUrl  String?
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Foreign Keys
+  authorId String
+
+  // Relations
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments Comment[]
+  likes    Like[]
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([published])
+}
+
+// ============================================
+// COMMENT MODEL
+// ============================================
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Foreign Keys
+  authorId String
+  postId   String
+
+  // Relations
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // Self-referential relation for nested comments (replies)
+  parentId String?
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("CommentReplies")
+
+  @@index([authorId])
+  @@index([postId])
+  @@index([parentId])
+  @@index([createdAt])
+}
+
+// ============================================
+// LIKE MODEL
+// ============================================
+model Like {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Foreign Keys
+  userId String
+  postId String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // Ensure a user can only like a post once
+  @@unique([userId, postId])
+  @@index([userId])
+  @@index([postId])
+}
+
